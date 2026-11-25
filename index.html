@@ -1,23 +1,82 @@
-<!doctype html>
-<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Peta Sebaran Perumahan BAST 2026</title>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Peta Sebaran Perumahan BAST 2026</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#182230}header{padding:13px 16px;background:#123b5d;color:#fff}h1{font-size:18px;margin:0 0 5px}#subtitle{font-size:13px;opacity:.9}#info{padding:10px 14px;background:#f2f6f9;border-bottom:1px solid #d9e1e8;font-size:14px}#map{height:calc(100vh - 105px);min-height:420px}.leaflet-popup-content{line-height:1.5}.tag{display:inline-block;padding:3px 7px;background:#e5f1fb;border-radius:4px;font-size:12px}
-</style></head><body>
-<header><h1>PETA SEBARAN PERUMAHAN BAST 2026</h1><div id="subtitle">Peta lokasi dan batas kawasan perumahan</div></header>
-<div id="info">Memuat data kawasan...</div><div id="map"></div>
+html,body{margin:0;padding:0;font-family:Arial,sans-serif}
+header{padding:14px;background:#174a35;color:white}
+h2{margin:0;font-size:19px}
+#info{padding:12px;background:#f1f5f2;font-size:14px}
+#map{height:75vh;width:100%}
+</style>
+</head>
+<body>
+<header><h2>Peta Sebaran Perumahan BAST 2026</h2></header>
+<div id="info">Memuat data kawasan perumahan...</div>
+<div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const params=new URLSearchParams(location.search); const selected=params.get('id');
-const map=L.map('map'); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'}).addTo(map);
-const info=document.getElementById('info');
-fetch('./Kawasan_WGS84.geojson').then(r=>{if(!r.ok)throw Error('Data kawasan tidak dapat dimuat');return r.json()}).then(data=>{
- const features=data.features||[]; const found=selected?features.filter(f=>String(f.properties.id)===String(selected)):features;
- if(!found.length){info.textContent='Kawasan dengan ID '+selected+' tidak ditemukan. Menampilkan seluruh kawasan.';}
- const show=found.length?found:features;
- const layer=L.geoJSON(show,{style:f=>({color:selected?'#d71920':'#1769aa',weight:selected?4:2,fillColor:selected?'#ffcc33':'#45a3d6',fillOpacity:selected?.38:.22}),onEachFeature:(f,l)=>{const p=f.properties||{};const name=p.KETERANGAN||'Nama kawasan tidak tersedia';l.bindPopup('<b>'+name+'</b><br>ID: '+p.id+'<br><span class="tag">BAST 2026</span>');}}).addTo(map);
- map.fitBounds(layer.getBounds(),{padding:[25,25],maxZoom:17});
- if(selected && found.length){const p=found[0].properties||{};info.innerHTML='<b>'+ (p.KETERANGAN||'Kawasan')+'</b> &nbsp; <span class="tag">ID '+p.id+'</span><br>Batas kawasan ditandai pada peta.';layer.openPopup();}
- else info.textContent='Menampilkan '+features.length+' kawasan perumahan. Pilih polygon untuk melihat nama dan ID.';
-}).catch(e=>{info.textContent='Gagal memuat data: '+e.message+' — pastikan file Kawasan_WGS84.geojson berada satu folder dengan index.html.';});
-</script></body></html>
+const map=L.map('map').setView([-4.0,122.5],10);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,
+  attribution:'&copy; OpenStreetMap'
+}).addTo(map);
+
+const params=new URLSearchParams(location.search);
+const fitur=params.get('fitur');
+
+fetch('Kawasan_WGS84.geojson')
+.then(response=>{
+  if(!response.ok) throw new Error('File GeoJSON tidak ditemukan');
+  return response.json();
+})
+.then(data=>{
+  const features=data.features||[];
+  const index=fitur===null?-1:Number(fitur)-1;
+  const valid=Number.isInteger(index)&&index>=0&&index<features.length;
+  const selected=valid?[features[index]]:features;
+
+  const layer=L.geoJSON(selected,{
+    style:function(){
+      return {
+        color:valid?'#e00000':'#176b42',
+        weight:valid?4:2,
+        fillColor:valid?'#ffcc00':'#55aa77',
+        fillOpacity:0.45
+      };
+    },
+    onEachFeature:function(feature,layer){
+      const p=feature.properties||{};
+      const nama=p.KETERANGAN||'Nama kawasan tidak tersedia';
+      const id=p.id??'-';
+      layer.bindPopup('<b>'+nama+'</b><br>ID: '+id);
+    }
+  }).addTo(map);
+
+  if(layer.getBounds().isValid()){
+    map.fitBounds(layer.getBounds(),{padding:[30,30]});
+  }
+
+  if(valid){
+    const p=features[index].properties||{};
+    document.getElementById('info').innerHTML=
+      '<b>Kawasan terpilih:</b> '+(p.KETERANGAN||'-')+
+      '<br><b>ID:</b> '+(p.id??'-')+
+      '<br><b>Nomor bidang:</b> '+fitur+' dari '+features.length;
+  }else{
+    document.getElementById('info').innerHTML=
+      '<b>Peta seluruh kawasan perumahan</b><br>Jumlah bidang: '+features.length;
+  }
+})
+.catch(error=>{
+  document.getElementById('info').innerHTML=
+    'Gagal memuat data peta. Pastikan file Kawasan_WGS84.geojson sudah diunggah.';
+  console.error(error);
+});
+</script>
+</body>
+</html>
